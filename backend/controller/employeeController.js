@@ -9,6 +9,10 @@ const { deleteFile } = require('../utils/file');
 
 const escapeRegex = (value = '') => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+// Photos live in MongoDB as base64 data-URLs (survives serverless /tmp ephemerality).
+const toPhotoDataUrl = (file) =>
+  file && file.buffer ? `data:${file.mimetype};base64,${file.buffer.toString('base64')}` : '';
+
 const SORTABLE = ['firstName', 'lastName', 'email', 'department', 'dateOfJoining', 'salary', 'status', 'createdAt'];
 
 /* ------------------------------- LIST (paged) ------------------------------- */
@@ -143,7 +147,7 @@ exports.createEmployee = async (req, res, next) => {
       salary: salary === undefined || salary === '' ? 0 : Number(salary),
       status: status || 'active',
       address, city, state, pincode,
-      photo: req.file ? `/uploads/employees/${req.file.filename}` : '',
+      photo: toPhotoDataUrl(req.file),
       createdBy: req.user.id, // 🔐 which admin created this record
     });
 
@@ -187,8 +191,9 @@ exports.updateEmployee = async (req, res, next) => {
     // New photo replaces the old one
     if (req.file) {
       const oldPhoto = employee.photo;
-      employee.photo = `/uploads/employees/${req.file.filename}`;
-      if (oldPhoto) deleteFile(oldPhoto.split('/').pop());
+      employee.photo = toPhotoDataUrl(req.file);
+      // Legacy disk photos can be cleaned up; data-URLs are a no-op in deleteFile.
+      if (oldPhoto && oldPhoto.startsWith('/uploads/')) deleteFile(oldPhoto.split('/').pop());
     }
 
     employee.updatedBy = req.user.id;
@@ -210,7 +215,9 @@ exports.deleteEmployee = async (req, res, next) => {
     }
 
     await employee.deleteOne();
-    if (employee.photo) deleteFile(employee.photo.split('/').pop());
+    if (employee.photo && employee.photo.startsWith('/uploads/')) {
+      deleteFile(employee.photo.split('/').pop()); // legacy disk files only
+    }
 
     return res.json({ success: true, message: 'Employee deleted', data: { id: req.params.id } });
   } catch (error) {

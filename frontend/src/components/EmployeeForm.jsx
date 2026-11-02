@@ -60,6 +60,50 @@ const Field = ({ label, required, error, children, className = 'col-md-6' }) => 
   </div>
 );
 
+/**
+ * Downscale picked photos to <=640px / JPEG q0.82 so the base64 data-URL
+ * stored in MongoDB stays tiny (~50-150 KB) — keeps list responses fast.
+ */
+const resizePhoto = (file) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    const objUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      try {
+        const MAX_DIM = 640;
+        let w = img.naturalWidth;
+        let h = img.naturalHeight;
+        if (w > MAX_DIM || h > MAX_DIM) {
+          const ratio = Math.min(MAX_DIM / w, MAX_DIM / h);
+          w = Math.max(1, Math.round(w * ratio));
+          h = Math.max(1, Math.round(h * ratio));
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(objUrl);
+            if (!blob) return resolve(file);
+            const name = file.name.replace(/\.\w+$/, '.jpg');
+            resolve(new File([blob], name, { type: 'image/jpeg', lastModified: Date.now() }));
+          },
+          'image/jpeg',
+          0.82
+        );
+      } catch {
+        URL.revokeObjectURL(objUrl);
+        resolve(file);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objUrl);
+      reject(new Error('Could not read image'));
+    };
+    img.src = objUrl;
+  });
+
 export default function EmployeeForm({ initial, mode = 'create', onSubmit, submitting = false, serverError = '' }) {
   const [values, setValues] = useState(EMPTY);
   const [errors, setErrors] = useState({});
@@ -102,7 +146,7 @@ export default function EmployeeForm({ initial, mode = 'create', onSubmit, submi
     setErrors((e) => ({ ...e, [field]: undefined }));
   };
 
-  const handlePhoto = (event) => {
+  const handlePhoto = async (event) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
@@ -112,14 +156,22 @@ export default function EmployeeForm({ initial, mode = 'create', onSubmit, submi
       return;
     }
     if (file.size > MAX_PHOTO_SIZE) {
-      setPhotoError('Photo must be smaller than 2 MB');
+      setPhotoError('Photo must be smaller than 10 MB');
       return;
     }
 
+    // Auto-downscale so the stored data-URL stays small
+    let uploadFile = file;
+    try {
+      uploadFile = await resizePhoto(file);
+    } catch {
+      uploadFile = file; // fall back to the original if resizing fails
+    }
+
     if (previewUrlRef.current) URL.revokeObjectURL(previewUrlRef.current);
-    const url = URL.createObjectURL(file);
+    const url = URL.createObjectURL(uploadFile);
     previewUrlRef.current = url;
-    setPhotoFile(file);
+    setPhotoFile(uploadFile);
     setPhotoPreview(url);
     setPhotoError('');
   };

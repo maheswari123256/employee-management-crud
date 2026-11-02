@@ -1,7 +1,8 @@
 /**
  * config/upload.js
- * Multer configuration for employee photo uploads (disk storage).
- * Local: backend/uploads/employees · Vercel serverless: /tmp (only writable dir)
+ * Multer configuration for employee photo uploads (memory storage).
+ * The buffer is converted to a base64 data-URL and stored in MongoDB —
+ * Vercel's /tmp is ephemeral, so disk files would vanish across invocations.
  */
 const fs = require('fs');
 const path = require('path');
@@ -17,18 +18,9 @@ fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const base =
-      path
-        .basename(file.originalname, ext)
-        .replace(/[^a-zA-Z0-9-_]/g, '')
-        .slice(0, 40) || 'photo';
-    cb(null, `${base}-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`);
-  },
-});
+// In-memory: no temp file on disk. Controller stores `req.file.buffer`
+// as a data-URL in the Employee.photo field (serverless-safe).
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   if (ALLOWED_TYPES.includes(file.mimetype)) {

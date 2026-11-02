@@ -40,7 +40,7 @@ export const EMPLOYEE_STATUSES = [
 
 export const PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
 
-export const MAX_PHOTO_SIZE = 2 * 1024 * 1024; // 2 MB
+export const MAX_PHOTO_SIZE = 10 * 1024 * 1024; // 10 MB original (auto-resized to ~640px before upload)
 export const ACCEPTED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 export const STATUS_BADGE = Object.fromEntries(EMPLOYEE_STATUSES.map((s) => [s.value, s.badge]));
