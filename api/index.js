@@ -2,7 +2,7 @@
  * api/index.js  (Vercel serverless function — mounted at /api)
  *
  * vercel.json rewrites ALL /api/* and /uploads/* requests here as:
- *     /api?p=/api/auth/login   →   we restore req.url from `p` before Express sees it.
+ *     /api?p=/api/auth/login   ->  we restore req.url from `p` before Express sees it.
  * (Vercel's api/ folder does not support multi-segment catch-alls, so the
  *  original path is forwarded through the query string instead.)
  */
@@ -35,16 +35,36 @@ const ensureReady = () => {
 
 module.exports = async (req, res) => {
   try {
-    await ensureReady();
+    const rawUrl = typeof req.url === 'string' ? req.url : '';
 
-    // Restore the real path from the rewrite (?p=/api/... or ?p=/uploads/...)
-    const p = req.query && req.query.p;
-    if (p && typeof p === 'string' && p.startsWith('/')) {
-      const qIndex = typeof req.url === 'string' ? req.url.indexOf('?') : -1;
-      const qs = qIndex >= 0 ? req.url.slice(qIndex) : '';
-      req.url = p + qs;
+    // 1) Restore the real path from the rewrite (?p=/api/... or ?p=/uploads/...)
+    //    Parsed from req.url directly (does not depend on req.query being populated).
+    let restored = false;
+    if (rawUrl.includes('?')) {
+      const qs = rawUrl.slice(rawUrl.indexOf('?') + 1);
+      const p = new URLSearchParams(qs).get('p');
+      if (p && p.startsWith('/')) {
+        req.url = p + '?' + qs;
+        restored = true;
+      }
     }
 
+    // 2) MONGO_URI not configured yet -> clean, friendly response (never leak raw mongoose errors)
+    if (!process.env.MONGO_URI) {
+      const isHealth = req.url.startsWith('/api/health');
+      return res.status(isHealth ? 200 : 503).json({
+        success: isHealth,
+        message: isHealth
+          ? 'API is running'
+          : 'Database not configured yet (MONGO_URI missing on Vercel). Set MONGO_URI in project settings and redeploy.',
+        db: 'disconnected',
+        // debug: proves the rewrite (?p=) forwarding + path restore + query preservation
+        debug: { raw: rawUrl, restored: req.url, restoredOk: restored },
+      });
+    }
+
+    // 3) Connect (cached) + auto-seed, then hand over to Express
+    await ensureReady();
     return app(req, res);
   } catch (err) {
     console.error('[VERCEL FUNCTION ERROR]', err.message);
