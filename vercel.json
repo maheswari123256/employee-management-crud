@@ -3,7 +3,7 @@
   "buildCommand": "npm run build --prefix frontend",
   "outputDirectory": "frontend/dist",
   "rewrites": [
-    { "source": "/uploads/:path*", "destination": "/api/uploads/:path*" },
+    { "source": "/(api|uploads)/(.*)", "destination": "/api?p=/$1/$2" },
     { "source": "/((?!api/|uploads/).*)", "destination": "/index.html" }
   ]
 }
