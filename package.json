@@ -1,0 +1,17 @@
+{
+  "name": "wizinoa-employee-management",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Employee Management Module - React (Vite+Bootstrap) frontend, Express+Mongoose MVC backend",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev --workspace backend",
+    "dev:frontend": "npm run dev --workspace frontend",
+    "build": "npm run build --workspace frontend",
+    "start": "npm start --workspace backend"
+  },
+  "license": "MIT"
+}

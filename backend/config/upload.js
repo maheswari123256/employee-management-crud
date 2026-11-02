@@ -1,12 +1,15 @@
 /**
  * config/upload.js
  * Multer configuration for employee photo uploads (disk storage).
+ * Local: backend/uploads/employees · Vercel serverless: /tmp (only writable dir)
  */
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 
-const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'employees');
+const UPLOAD_DIR = process.env.VERCEL
+  ? path.join('/tmp', 'wizinoa-uploads')
+  : path.join(__dirname, '..', 'uploads', 'employees');
 
 // Make sure the upload folder always exists
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
