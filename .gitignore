@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+frontend/dist/
+
+# Environment secrets (examples are committed instead)
+.env
+.env.local
+.env.*.local
+
+# Uploaded photos (folder + .gitkeep are kept)
+backend/uploads/employees/*
+!backend/uploads/employees/.gitkeep
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
